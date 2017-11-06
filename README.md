@@ -29,5 +29,6 @@ docker run -d --restart=always \
   -e USER=user \
   -e PASS=password \
   -p 3412:3412 \
+  -p 3412:3412/udp \
   vicanso/nginx-access
 ``` 
