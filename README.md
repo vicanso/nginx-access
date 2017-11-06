@@ -28,5 +28,6 @@ docker run -d --restart=always \
   -e INFLUX=http://172.0.0.1:8086 \
   -e USER=user \
   -e PASS=password \
+  -p 3412:3412 \
   vicanso/nginx-access
 ``` 
