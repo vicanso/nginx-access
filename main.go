@@ -109,7 +109,7 @@ func analyse(str string) *client.Point {
 		"via":          result[13],
 	}
 	tags := map[string]string{
-		"method": result[5],
+		"method": strings.ToUpper(result[5]),
 		"type":   result[8][0:1],
 		"spdy":   getSpdy(requestTime),
 	}
