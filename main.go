@@ -72,7 +72,7 @@ func getSpdy(time float64) string {
 func analyse(str string) *client.Point {
 	arr := strings.SplitN(strings.TrimSpace(str), "\"", -1)
 
-	limitLength := 14
+	limitLength := 15
 	result := make([]string, 0, limitLength*2)
 	for index, item := range arr {
 		trimItem := strings.TrimSpace(item)
@@ -91,26 +91,27 @@ func analyse(str string) *client.Point {
 		return nil
 	}
 
-	status, _ := strconv.ParseInt(result[8], 10, 32)
-	responseTime, _ := strconv.ParseFloat(result[10], 64)
-	requestTime, _ := strconv.ParseFloat(result[11], 64)
-	bytes, _ := strconv.ParseInt(result[9], 10, 32)
+	status, _ := strconv.ParseInt(result[9], 10, 32)
+	responseTime, _ := strconv.ParseFloat(result[11], 64)
+	requestTime, _ := strconv.ParseFloat(result[12], 64)
+	bytes, _ := strconv.ParseInt(result[10], 10, 32)
 
 	fields := map[string]interface{}{
 		"ip":           result[2],
 		"track":        result[3],
 		"responseId":   result[4],
-		"url":          result[6],
+		"url":          result[7],
 		"status":       status,
 		"bytes":        bytes,
 		"responseTime": responseTime,
 		"requestTime":  requestTime,
-		"referrer":     result[12],
-		"via":          result[13],
+		"referrer":     result[13],
+		"via":          result[14],
 	}
 	tags := map[string]string{
-		"method": strings.ToUpper(result[5]),
-		"type":   result[8][0:1],
+		"host":   result[5],
+		"method": strings.ToUpper(result[6]),
+		"type":   result[9][0:1],
 		"spdy":   getSpdy(requestTime),
 	}
 	pt, err := client.NewPoint("nginx_access", tags, fields, time.Now())
