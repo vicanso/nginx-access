@@ -1,14 +1,15 @@
 package main
 
 import (
+	"log"
 	"os"
 	"os/signal"
+	"regexp"
 	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	log "github.com/Sirupsen/logrus"
 	client "github.com/influxdata/influxdb/client/v2"
 
 	"github.com/ziutek/syslog"
@@ -43,7 +44,7 @@ func writeToFile(logPath string, buf []byte) {
 		file := logPath + "/" + date
 		fd, err := os.OpenFile(file, os.O_CREATE|os.O_APPEND|os.O_WRONLY, 0666)
 		if err != nil {
-			log.Error("Open file fail:", err)
+			log.Println("Open file fail:", err)
 			return
 		}
 		nginxFileLog.fd = fd
@@ -72,15 +73,26 @@ func getSpdy(time float64) string {
 func analyse(str string) *client.Point {
 	arr := strings.SplitN(strings.TrimSpace(str), "\"", -1)
 
-	limitLength := 15
+	limitLength := 16
 	result := make([]string, 0, limitLength*2)
 	for index, item := range arr {
 		trimItem := strings.TrimSpace(item)
 		if len(trimItem) == 0 {
 			continue
 		}
-		if index == 5 {
+		// http via
+		if index == 7 {
 			result = append(result, trimItem)
+		} else if index == 3 {
+			// content type
+			reg := regexp.MustCompile(`/[a-z]+;`)
+			contentType := reg.FindString(trimItem)
+			if len(contentType) != 0 {
+				contentType = contentType[1 : len(contentType)-1]
+			} else {
+				contentType = "unknown"
+			}
+			result = append(result, contentType)
 		} else {
 			tmpArr := strings.SplitN(trimItem, " ", -1)
 			result = append(result, tmpArr...)
@@ -105,14 +117,15 @@ func analyse(str string) *client.Point {
 		"bytes":        bytes,
 		"responseTime": responseTime,
 		"requestTime":  requestTime,
-		"referrer":     result[13],
-		"via":          result[14],
+		"referrer":     result[14],
+		"via":          result[15],
 	}
 	tags := map[string]string{
-		"host":   result[5],
-		"method": strings.ToUpper(result[6]),
-		"type":   result[9][0:1],
-		"spdy":   getSpdy(requestTime),
+		"host":        result[5],
+		"method":      strings.ToUpper(result[6]),
+		"type":        result[9][0:1],
+		"spdy":        getSpdy(requestTime),
+		"contentType": result[13],
 	}
 	pt, err := client.NewPoint("nginx_access", tags, fields, time.Now())
 	if err != nil {
@@ -188,7 +201,7 @@ func (h *handler) mainLoop() {
 		}
 		count++
 		bp.AddPoint(pt)
-		log.Info(count)
+		log.Println(count)
 		// batch write to influxdb
 		if count >= batchSize {
 			if err := c.Write(bp); err != nil {
@@ -198,7 +211,7 @@ func (h *handler) mainLoop() {
 			bp = nil
 		}
 	}
-	log.Info("Exit handler")
+	log.Println("Exit handler")
 	h.End()
 }
 
@@ -207,7 +220,7 @@ func main() {
 	s := syslog.NewServer()
 	s.AddHandler(newHandler())
 	s.Listen("0.0.0.0:3412")
-	log.Info("server is linsten on 3412")
+	log.Println("server is linsten on 3412")
 
 	// Wait for terminating signal
 	sc := make(chan os.Signal, 2)
@@ -215,7 +228,7 @@ func main() {
 	<-sc
 
 	// Shutdown the server
-	log.Info("Shutdown the server...")
+	log.Println("Shutdown the server...")
 	s.Shutdown()
-	log.Info("Server is down")
+	log.Println("Server is down")
 }
